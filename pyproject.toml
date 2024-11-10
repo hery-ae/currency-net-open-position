@@ -1,0 +1,11 @@
+[project]
+name = "net-open-position"
+version = "1.0.0"
+description = ""
+dependencies = [
+    "flask",
+    "SQLAlchemy",
+    "requests",
+    "pyjwt",
+    "redis"
+]
