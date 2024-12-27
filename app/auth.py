@@ -3,32 +3,23 @@ from flask import current_app, request, Response
 from jwt import decode, DecodeError
 from redis import Redis
 
-class Auth:
-    def __init__(self, route):
-        self.route = route
+def authorize(route):
+    @wraps(route)
+    def wrapper(*args, **kwargs):
+        access_token = request.headers.get('Authorization')
+        access_token = access_token and access_token.startswith('Bearer ') and access_token[len('Bearer '):]
 
-    def authenticate(route):
-        @wraps(route)
-        def wrapper(*args, **kwargs):
+        try:
+            payload = decode(access_token, current_app.config.get('SECRET_KEY'), algorithms=['HS256'])
+
             redis = Redis()
 
-            if redis.keys('user-session:*'):
-                return Response(status=403)
+            if redis.exists(('token:{}').format(payload.get('sub'))):
+                return route(*args, **kwargs, user={ 'user_id': payload.get('user_id') })
 
-            secret_key = current_app.config.get('SECRET_KEY')
-            access_token = request.headers['Authorization'].partition('Bearer ')
-            access_token = access_token[2]
+        except DecodeError:
+            pass
 
-            for session in redis.keys('user-session:*'):
-                if redis.hget(session, 'access_token') and access_token:
-                    try:
-                        decode(access_token, secret_key, algorithms=['HS256'])
+        return Response(status=403)
 
-                    except DecodeError:
-                        return Response(status=403)
-
-                    return route(*args, **kwargs)
-
-            return Response(status=403)
-
-        return wrapper
+    return wrapper

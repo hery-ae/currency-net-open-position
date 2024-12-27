@@ -1,34 +1,35 @@
 from flask import request, Response
 from sqlalchemy.exc import SQLAlchemyError
-from ..auth import Auth
-from ..models.adjustment import Adjustment as AdjustmentModel
+from ..auth import authorize
+from ..models.interbank_deal import InterbankDeal as InterbankDealModel
 
-class Adjustment:
-    url_prefix = '/adjustments'
+class InterbankDeal:
+    url_prefix = '/interbank-deals'
 
-    @Auth.authenticate
-    def get_adjustment():
-        model = AdjustmentModel()
+    @authorize
+    def get_interbank_deal(user=None):
+        model = InterbankDealModel()
         query = model.query()
         data = model.get(query)
 
         return data
 
-    @Auth.authenticate
-    def store_adjustment():
+    @authorize
+    def store_interbank_deal(user=None):
         if (request.is_json == False):
             return Response(status=400)
 
         try:
             values = {
-                'user_id': request.json['user_id'],
+                'user_id': user['user_id'],
                 'currency_id': request.json['currency_id'],
-                'amount': request.json['amount'],
+                'interoffice_rate': request.json['interoffice_rate'],
                 'base_currency_closing_rate': request.json['base_currency_closing_rate'],
+                'amount': request.json['amount'],
             }
 
             try:
-                AdjustmentModel(**values).save()
+                InterbankDealModel(**values).save()
 
             except SQLAlchemyError:
                 return Response(status=500)
@@ -37,11 +38,3 @@ class Adjustment:
             return Response(status=400)
 
         return Response(status=201)
-
-    @Auth.authenticate
-    def update_adjustment(adjustment_id):
-        pass
-
-    @Auth.authenticate
-    def delete_adjustment(adjustment_id):
-        pass

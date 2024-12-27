@@ -1,12 +1,12 @@
 from datetime import datetime
-from requests import post
-from flask import current_app, request, Response
-from redis import Redis
-from ..auth import Auth
-from ..models import InterbankDealModel, SalesDealModel, AdjustmentModel
+from flask import request, Response
+from ..auth import authorize
+from ..models.interbank_deal import InterbankDeal as InterbankDealModel
+from ..models.sales_deal import SalesDeal as SalesDealModel
+from ..models.adjustment import Adjustment as AdjustmentModel
 
-@Auth.authenticate
-def index():
+@authorize
+def nop(user=None):
     date_to = datetime.now()
 
     if 'date-to' in request.args:
@@ -110,24 +110,3 @@ def index():
         value['current_nop'] += value['current_adjustment'] + value['opening_nop']
 
     return nop
-
-def authorize():
-    code = request.values.get('auth-token')
-    client_url = current_app.config.get('CLIENT_URL')
-
-    client_request = post(('{}token.json').format(client_url), data={'code': code})
-
-    if client_request.status_code == 200:
-        client_response = client_request.json()
-
-        redis = Redis()
-        session = len(redis.keys())
-
-        redis.hset(f'user-session:{session}', mapping=client_response)
-
-        return {
-            'access_token': redis.hget(f'user-session:{session}', 'access_token'),
-            'token_type': 'Bearer'
-        }
-
-    return Response(status=401)
